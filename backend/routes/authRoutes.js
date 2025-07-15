@@ -5,9 +5,12 @@ import fs from 'fs';
 import FormData from 'form-data';
 
 const router = express.Router();
+
+const storage = multer.memoryStorage();
+
 const upload = multer({
-  dest: 'uploads/',
-  limits: { fileSize: 5 * 1024 * 1024 },
+  storage, // ← ✅ No disk writes
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
   fileFilter: (req, file, cb) => {
     const allowedTypes = ['image/jpeg', 'image/png', 'image/gif'];
     if (allowedTypes.includes(file.mimetype)) {
@@ -17,6 +20,7 @@ const upload = multer({
     }
   },
 });
+
 
 const authenticateToken = async (req, res, next) => {
   const token = req.headers['x-access-token'];
