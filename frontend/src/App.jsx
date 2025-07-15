@@ -15,7 +15,7 @@ function App() {
   const [imageFile, setImageFile] = useState(null);
 
   const clientId =932082188994951;
-  const redirectUri ='http://localhost:5000/api/auth/callback';
+  const redirectUri ='https://threads-1rpq.vercel.app/api/auth/callback';
   console.log(token,"access token");
   
   const handleLogin = () => {
