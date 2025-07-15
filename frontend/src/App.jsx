@@ -19,8 +19,7 @@ function App() {
   console.log(token,"access token");
   
   const handleLogin = () => {
-   const url = `https://www.facebook.com/v18.0/dialog/oauth?client_id=${clientId}&redirect_uri=${redirectUri}&scope=public_profile,threads_basic,threads_content_publish&response_type=code`;
-
+    const url = `https://api.instagram.com/oauth/authorize?client_id=${clientId}&redirect_uri=${redirectUri}&scope=user_profile,threads_basic,threads_content_publish&response_type=code`;
     window.location.href = url;
   };
 
