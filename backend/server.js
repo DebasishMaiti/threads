@@ -1,21 +1,76 @@
+// /backend/index.js
 import express from 'express';
+import axios from 'axios';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import authRoutes from './routes/authRoutes.js';
 
 dotenv.config();
 
 const app = express();
-
-app.use(cors({ origin:'http://localhost:5173' }));
+app.use(cors());
 app.use(express.json());
 
-app.use('/api/auth', authRoutes);
+const {
+  CLIENT_ID,
+  CLIENT_SECRET,
+  REDIRECT_URI
+} = process.env;
 
-app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(500).json({ message: 'Something went wrong!' });
+// Exchange code for token
+app.get('/api/auth/callback', async (req, res) => {
+  const { code } = req.query;
+
+  try {
+    const result = await axios.post(`https://api.instagram.com/oauth/access_token`, null, {
+      params: {
+        client_id: CLIENT_ID,
+        client_secret: CLIENT_SECRET,
+        grant_type: 'authorization_code',
+        redirect_uri: REDIRECT_URI,
+        code
+      }
+    });
+
+    res.json({ token: result.data.access_token });
+  } catch (error) {
+    res.status(500).json({ error: error.response?.data || 'Token exchange failed' });
+  }
 });
 
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
+// Fetch Threads profile
+app.get('/api/profile', async (req, res) => {
+  const token = req.headers.authorization?.split(' ')[1];
+  if (!token) return res.status(401).json({ error: 'Token required' });
+
+  try {
+    const profile = await axios.get(
+      `https://graph.threads.net/v1.0/me?fields=id,username,profile_picture_url`,
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+
+    res.json(profile.data);
+  } catch (err) {
+    res.status(500).json({ error: err.response?.data || 'Failed to fetch profile' });
+  }
+});
+
+// Post to Threads
+app.post('/api/post', async (req, res) => {
+  const token = req.headers.authorization?.split(' ')[1];
+  const { message } = req.body;
+  if (!token || !message) return res.status(400).json({ error: 'Missing fields' });
+
+  try {
+    const post = await axios.post(
+      `https://graph.threads.net/v1.0/me/threads`,
+      { message },
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+
+    res.json(post.data);
+  } catch (err) {
+    res.status(500).json({ error: err.response?.data || 'Failed to post' });
+  }
+});
+
+app.listen(5000, () => console.log('Backend running on http://localhost:5000'));
