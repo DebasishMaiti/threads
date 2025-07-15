@@ -14,7 +14,7 @@ function App() {
   const [postText, setPostText] = useState('');
   const [imageFile, setImageFile] = useState(null);
 
-  const clientId =1104549454856069;
+  const clientId =1301326625034084;
   const redirectUri ='https://threads-1rpq.vercel.app/api/auth/callback';
   console.log(token,"access token");
   
