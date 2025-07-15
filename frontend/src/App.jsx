@@ -1,186 +1,77 @@
-import React, { useEffect, useState } from 'react';
-import { Button, Card, Alert, Layout, Typography, message, Input, Upload } from 'antd';
-import { UploadOutlined } from '@ant-design/icons';
+import { useEffect, useState } from 'react';
 import axios from 'axios';
 
-const { Header, Content } = Layout;
-const { Title, Text } = Typography;
+const API = 'http://localhost:5000/api';
 
 function App() {
-  const [user, setUser] = useState(null);
-  const [profile, setProfile] = useState(null);
   const [token, setToken] = useState(localStorage.getItem('access_token') || '');
-  const [error, setError] = useState('');
+  const [profile, setProfile] = useState(null);
   const [postText, setPostText] = useState('');
-  const [imageFile, setImageFile] = useState(null);
+  const [message, setMessage] = useState('');
 
-  const clientId =1104549454856069;
-  const redirectUri ='https://threads-1rpq.vercel.app/api/auth/callback';
-  console.log(token,"access token");
-  
-  const handleLogin = () => {
-    const url = `https://api.instagram.com/oauth/authorize?client_id=${clientId}&redirect_uri=${redirectUri}&scope=user_profile,threads_basic,threads_content_publish&response_type=code`;
+  const login = () => {
+    const client_id =1104549454856069;
+    const redirect_uri = 'https://threads-1rpq.vercel.app/api/auth/callbacks';
+    const scope = 'threads_basic,threads_content_publish';
+    const url = `https://www.instagram.com/oauth/authorize?client_id=${client_id}&redirect_uri=${redirect_uri}&scope=${scope}&response_type=code`;
     window.location.href = url;
   };
 
+  const fetchProfile = async () => {
+    const res = await axios.get(`${API}/profile`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    setProfile(res.data);
+  };
+
+  const sendPost = async () => {
+    const res = await axios.post(`${API}/post`, { message: postText }, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    setMessage('Posted successfully!');
+  };
+
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const code = params.get('code');
-    const tokenParam = params.get('token');
-    const username = params.get('user');
-
-    if (code) {
+    const code = new URLSearchParams(window.location.search).get('code');
+    if (code && !token) {
       axios
-        .post('http://localhost:5000/api/auth/instagram', { code })
-        .then((res) => {
-          const { access_token, user } = res.data;
-          localStorage.setItem('access_token', access_token);
-          setToken(access_token);
-          setUser(user);
-          setError('');
-          message.success(`Welcome, ${user.username}`);
-          window.history.replaceState({}, document.title, '/');
-        })
-        .catch(() => {
-          setError('Login failed. Please try again.');
-        });
-    } else if (tokenParam && username) {
-      localStorage.setItem('access_token', tokenParam);
-      setToken(tokenParam);
-      setUser({ username });
-      setError('');
-      message.success(`Welcome, ${username}`);
-      window.history.replaceState({}, document.title, '/');
-    } else if (token && !user) {
-      axios
-        .get('http://localhost:5000/api/auth/profile', {
-          headers: { 'X-Access-Token': token },
-        })
-        .then((res) => {
-          setUser({ id: res.data.id, username: res.data.username });
-        })
-        .catch(() => {
-          localStorage.removeItem('access_token');
-          setToken('');
-          message.error('Session expired. Please log in again.');
+        .get(`${API}/auth/callback?code=${code}`)
+        .then(res => {
+          localStorage.setItem('access_token', res.data.token);
+          setToken(res.data.token);
+          window.history.replaceState(null, '', '/');
         });
     }
-  }, [token]);
-
-  const handlePost = () => {
-    const formData = new FormData();
-    formData.append('caption', postText);
-    if (imageFile) {
-      formData.append('image', imageFile);
-    }
-
-    axios
-      .post('http://localhost:5000/api/auth/post', formData, {
-        headers: {
-          'X-Access-Token': token,
-          'Content-Type': 'multipart/form-data',
-        },
-      })
-      .then((res) => {
-        message.success(res.data.message);
-        setPostText('');
-        setImageFile(null);
-      })
-      .catch((err) => {
-        message.error(err.response?.data?.message || 'Failed to post');
-      });
-  };
-
-  const fetchProfile = () => {
-    axios
-      .get('http://localhost:5000/api/auth/profile', {
-        headers: { 'X-Access-Token': token },
-      })
-      .then((res) => {
-        setProfile(res.data);
-        setUser({ id: res.data.id, username: res.data.username });
-        message.success('Profile fetched successfully');
-      })
-      .catch(() => {
-        message.error('Failed to fetch profile.');
-      });
-  };
+  }, []);
 
   return (
-    <Layout style={{ minHeight: '100vh' }}>
-      <Header style={{ color: '#fff', fontSize: '20px' }}>Threads Scheduler</Header>
-      <Content style={{ padding: '50px', maxWidth: 600, margin: '0 auto' }}>
-        <Card>
-          <Title level={4}>Threads Scheduler</Title>
+    <div style={{ padding: 40 }}>
+      <h1>Threads Auto Poster</h1>
 
-          {error && <Alert message={error} type="error" className="mb-3" />}
-
-          {!token ? (
-            <Button type="primary" onClick={handleLogin}>
-              Login with Threads
-            </Button>
-          ) : (
-            <>
-              <Alert
-                message={`Logged in as ${user?.username}`}
-                type="success"
-                className="mb-3"
-              />
-              <Text>ID: {user?.id}</Text>
-              <br />
-
-              <Card style={{ marginTop: 24 }}>
-                <Title level={5}>Create Thread</Title>
-                <Input.TextArea
-                  rows={3}
-                  value={postText}
-                  onChange={(e) => setPostText(e.target.value)}
-                  placeholder="Write your thread post..."
-                />
-                <Upload
-                  beforeUpload={(file) => {
-                    setImageFile(file);
-                    return false;
-                  }}
-                  onRemove={() => setImageFile(null)}
-                  showUploadList={{ showRemoveIcon: true, showPreviewIcon: false }}
-                  fileList={imageFile ? [{ uid: '-1', name: imageFile.name, status: 'done' }] : []}
-                >
-                  <Button icon={<UploadOutlined />} style={{ marginTop: 10 }}>
-                    {imageFile ? 'Change Image' : 'Upload Image (optional)'}
-                  </Button>
-                </Upload>
-                <Button
-                  type="primary"
-                  onClick={handlePost}
-                  style={{ marginTop: 10 }}
-                  disabled={!postText}
-                >
-                  Post Thread
-                </Button>
-              </Card>
-
-              <Button
-                type="default"
-                onClick={fetchProfile}
-                style={{ marginTop: 16 }}
-              >
-                Get Profile
-              </Button>
-
-              {profile && (
-                <Card style={{ marginTop: 24 }}>
-                  <Title level={5}>My Threads Profile</Title>
-                  <p><strong>Username:</strong> {profile.username}</p>
-                  <p><strong>Biography:</strong> {profile.threads_biography || 'N/A'}</p>
-                  <p><strong>Profile Picture URL:</strong> {profile.threads_profile_picture_url || 'N/A'}</p>
-                </Card>
-              )}
-            </>
+      {!token ? (
+        <button onClick={login}>Login with Threads</button>
+      ) : (
+        <>
+          <button onClick={fetchProfile}>Fetch Profile</button>
+          {profile && (
+            <div>
+              <h3>Welcome, {profile.username}</h3>
+              <img src={profile.profile_picture_url} alt="profile" width={80} />
+            </div>
           )}
-        </Card>
-      </Content>
-    </Layout>
+          <textarea
+            rows={4}
+            placeholder="Write your Threads post here"
+            value={postText}
+            onChange={(e) => setPostText(e.target.value)}
+            style={{ width: '100%', marginTop: 20 }}
+          />
+          <button onClick={sendPost} style={{ marginTop: 10 }}>Post to Threads</button>
+
+          {message && <p style={{ color: 'green' }}>{message}</p>}
+        </>
+      )}
+    </div>
   );
 }
 
